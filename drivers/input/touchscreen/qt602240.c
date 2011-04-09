@@ -437,10 +437,14 @@ static void release_all_fingers(struct input_dev *input_dev)
 
 	    fingerInfo[i].pressure = 0;
 
-	    input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
+/*		Temp diabled multitouch reporting 
+		input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
 	    input_report_abs(input_dev, ABS_MT_POSITION_Y, fingerInfo[i].y);
 	    input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, fingerInfo[i].pressure);
 	    input_report_abs(input_dev, ABS_MT_WIDTH_MAJOR, fingerInfo[i].id);
+*/
+		input_report_abs(input_dev, ABS_X, fingerInfo[i].x);
+		input_report_abs(input_dev, ABS_Y, fingerInfo[i].y);
 	    input_mt_sync(input_dev);
 
 	    if ( fingerInfo[i].pressure == 0 )
@@ -1307,6 +1311,7 @@ static void qt602240_input_read(struct qt602240_data *data)
                 set_dvfs_perf_level();
                 fingerInfo[id].pressure= 0;
                 bChangeUpDn= 1;
+				input_report_key(input_dev, BTN_TOUCH, 0);					//This is a fucking hacky fix it not being reported properly in with its appropriate place
                 printk(KERN_DEBUG "[TSP] Finger[%d] Up    (%d,%d) size : %d\n", id, fingerInfo[id].x, fingerInfo[id].y, size);
             }
             else if((touch_status & 0xf0 ) == 0xc0)                                  // Detect & Press  : 0x80 | 0x40
@@ -1325,7 +1330,8 @@ static void qt602240_input_read(struct qt602240_data *data)
 #if defined(DRIVER_FILTER)
                 equalize_coordinate(1, id, &fingerInfo[id].x, &fingerInfo[id].y);
 #endif
-                printk(KERN_DEBUG "[TSP] Finger[%d] Down  (%d,%d) size : %d \n", id, fingerInfo[id].x, fingerInfo[id].y, size);
+                input_report_key(input_dev, BTN_TOUCH, 1);				//Another fucking hacky fix for the same bug
+				printk(KERN_DEBUG "[TSP] Finger[%d] Down  (%d,%d) size : %d \n", id, fingerInfo[id].x, fingerInfo[id].y, size);
             }
             else if ((touch_status & 0xf0 ) == 0x90 )	                      // Detect & Move : 0x80 | 0x10
             {
@@ -1364,10 +1370,14 @@ static void qt602240_input_read(struct qt602240_data *data)
                         continue;
                     }
 
-                    input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
+/*					Disabled for now
+					input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
                     input_report_abs(input_dev, ABS_MT_POSITION_Y, fingerInfo[i].y);
                     input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, fingerInfo[i].pressure);
                     input_report_abs(input_dev, ABS_MT_WIDTH_MAJOR, fingerInfo[i].id);
+*/
+					input_report_abs(input_dev, ABS_X, fingerInfo[i].x);
+					input_report_abs(input_dev, ABS_Y, fingerInfo[i].y);
                     input_mt_sync(input_dev);
 
                     if(fingerInfo[i].pressure == 0 )
