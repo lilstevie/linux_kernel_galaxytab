@@ -626,16 +626,18 @@ static int __init parse_tag_revision(const struct tag *tag)
 }
 
 __tagtable(ATAG_REVISION, parse_tag_revision);
-
-static int __init parse_tag_cmdline(const struct tag *tag)
-{
-	strlcpy(default_command_line, tag->u.cmdline.cmdline, COMMAND_LINE_SIZE);
-	return 0;
-}
-
-__tagtable(ATAG_CMDLINE, parse_tag_cmdline);
-
 /*
+ * Part of the kernel commandline patch by lardman.
+ *
+ *static int __init parse_tag_cmdline(const struct tag *tag)
+ *{	
+ *	strlcpy(default_command_line, tag->u.cmdline.cmdline, COMMAND_LINE_SIZE);
+ *	return 0;
+ *}
+ *
+ *__tagtable(ATAG_CMDLINE, parse_tag_cmdline);
+ *
+ *
  * Scan the tag table for this tag, and call its parse function.
  * The tag table is built by the linker from all the __tagtable
  * declarations.
@@ -739,12 +741,28 @@ void __init setup_arch(char **cmdline_p)
 	init_mm.end_data   = (unsigned long) _edata;
 	init_mm.brk	   = (unsigned long) _end;
 
+/* This is the rest of lardman's commandline patch
+ * hopefully he will commit a more descriptive comment later.
+ */
+	
+#if defined(CONFIG_CMDLINE_BOOL)
+	strncpy(&command_line[0], CONFIG_CMDLINE sizeof(command_line));
+	command_line[sizeof(command_line) - 1] = 0;
+	printk("LARDMAN: kernel command_line: %s\n", command_line);
+#endif
+	
+	/* Keep a copy of command line */
+	*cmdline_p = &command_line[0];
+	
 	memcpy(boot_command_line, from, COMMAND_LINE_SIZE);
 	boot_command_line[COMMAND_LINE_SIZE-1] = '\0';
+	printk("LARDMAN: kernel boot_command_line: %s\n", boot_command_line);
 	parse_cmdline(cmdline_p, from);
 	paging_init(mdesc);
 	request_standard_resources(&meminfo, mdesc);
 
+//This is the end of the patches
+ 
 #ifdef CONFIG_SMP
 	smp_init_cpus();
 #endif
