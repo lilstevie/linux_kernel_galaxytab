@@ -247,7 +247,8 @@ int s5p_lcd_set_power(struct lcd_device *ld, int power)
 	}
 	else
 	{
-		lms700_powerdown();
+		//lms700_powerdown();	//Prevents the LCD from powering down when X starts.
+		
 		//s6e63m0_panel_send_sequence(s6e63m0_SEQ_DISPLAY_OFF);
 	}
 
