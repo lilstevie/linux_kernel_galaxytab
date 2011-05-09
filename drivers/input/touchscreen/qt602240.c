@@ -437,14 +437,10 @@ static void release_all_fingers(struct input_dev *input_dev)
 
 	    fingerInfo[i].pressure = 0;
 
-/*		Temp diabled multitouch reporting 
-		input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
+ 	    input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
 	    input_report_abs(input_dev, ABS_MT_POSITION_Y, fingerInfo[i].y);
 	    input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, fingerInfo[i].pressure);
 	    input_report_abs(input_dev, ABS_MT_WIDTH_MAJOR, fingerInfo[i].id);
-*/
-		input_report_abs(input_dev, ABS_X, fingerInfo[i].x);
-		input_report_abs(input_dev, ABS_Y, fingerInfo[i].y);
 	    input_mt_sync(input_dev);
 
 	    if ( fingerInfo[i].pressure == 0 )
@@ -1265,6 +1261,8 @@ static void qt602240_input_read(struct qt602240_data *data)
     u8 id, size;
     int i;
     int bChangeUpDn= 0;
+    int press;
+    int btn_report = 0;
     int x = 0, y = 0;
 //    int error = 0;
     static int nPrevID= -1;
@@ -1310,8 +1308,9 @@ static void qt602240_input_read(struct qt602240_data *data)
                 s5pc110_unlock_dvfs_high_level(DVFS_LOCK_TOKEN_4);
                 set_dvfs_perf_level();
                 fingerInfo[id].pressure= 0;
-                bChangeUpDn= 1;
-				input_report_key(input_dev, BTN_TOUCH, 0);					//This is a fucking hacky fix it not being reported properly in with its appropriate place
+                press = 0;						//report new finger coordinates now that finger is not touching the screen
+		bChangeUpDn= 1;
+		input_report_key(input_dev, BTN_TOUCH, 0);		//report that click event has ended
                 printk(KERN_DEBUG "[TSP] Finger[%d] Up    (%d,%d) size : %d\n", id, fingerInfo[id].x, fingerInfo[id].y, size);
             }
             else if((touch_status & 0xf0 ) == 0xc0)                                  // Detect & Press  : 0x80 | 0x40
@@ -1327,10 +1326,11 @@ static void qt602240_input_read(struct qt602240_data *data)
                 fingerInfo[id].x= (int16_t)x;
                 fingerInfo[id].y= (int16_t)y;
                 bChangeUpDn= 1;
+		press = 1;				//report X, Y for single touch now that there is a finger on the screen
+		btn_report = 1;				//report touch as a click event
 #if defined(DRIVER_FILTER)
                 equalize_coordinate(1, id, &fingerInfo[id].x, &fingerInfo[id].y);
 #endif
-                input_report_key(input_dev, BTN_TOUCH, 1);				//Another fucking hacky fix for the same bug
 				printk(KERN_DEBUG "[TSP] Finger[%d] Down  (%d,%d) size : %d \n", id, fingerInfo[id].x, fingerInfo[id].y, size);
             }
             else if ((touch_status & 0xf0 ) == 0x90 )	                      // Detect & Move : 0x80 | 0x10
@@ -1341,6 +1341,7 @@ static void qt602240_input_read(struct qt602240_data *data)
 #endif
                 fingerInfo[id].x= (int16_t)x;
                 fingerInfo[id].y= (int16_t)y;
+		press = 1;				//report that the finger is moving for single touch as X, Y
 #if defined(DRIVER_FILTER)
                 equalize_coordinate(0, id, &fingerInfo[id].x, &fingerInfo[id].y);
 #endif
@@ -1369,15 +1370,10 @@ static void qt602240_input_read(struct qt602240_data *data)
                     {
                         continue;
                     }
-
-/*					Disabled for now
-					input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
+		    input_report_abs(input_dev, ABS_MT_POSITION_X, fingerInfo[i].x);
                     input_report_abs(input_dev, ABS_MT_POSITION_Y, fingerInfo[i].y);
                     input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, fingerInfo[i].pressure);
                     input_report_abs(input_dev, ABS_MT_WIDTH_MAJOR, fingerInfo[i].id);
-*/
-					input_report_abs(input_dev, ABS_X, fingerInfo[i].x);
-					input_report_abs(input_dev, ABS_Y, fingerInfo[i].y);
                     input_mt_sync(input_dev);
 
                     if(fingerInfo[i].pressure == 0 )
@@ -1385,6 +1381,13 @@ static void qt602240_input_read(struct qt602240_data *data)
                         fingerInfo[i].pressure= -1;
                     }
                 }
+		if(press == 1 ){
+				input_report_abs(input_dev, ABS_X, x);
+				input_report_abs(input_dev, ABS_Y, y);
+				if(btn_report == 1){
+							input_report_key(input_dev, BTN_TOUCH, 1);
+				}
+		}
 
                 input_sync(input_dev);
             }
@@ -2440,17 +2443,17 @@ static int __devinit qt602240_probe(struct i2c_client *client,
 	set_bit(BTN_TOUCH, input_dev->keybit);
 	set_bit(EV_ABS, input_dev->evbit);
 
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-	        0, QT602240_MAX_XC-1, 0, 0);
+        input_set_abs_params(input_dev, ABS_X, 0, QT602240_MAX_XC-1, 0, 0);
+        input_set_abs_params(input_dev, ABS_Y, 0, QT602240_MAX_YC-1, 0, 0);
 
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-	        0, QT602240_MAX_YC-1, 0, 0);
-
-	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
-	        0, QT602240_MAX_PRESSURE, 0, 0);
-
-	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR,
-	        0, QT602240_MAX_SIZE, 0, 0);
+        input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, QT602240_MAX_XC-1, 0, 0);
+        input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, QT602240_MAX_YC-1, 0, 0);
+        
+        input_set_abs_params(input_dev, ABS_PRESSURE, 0, QT602240_MAX_PRESSURE, 0, 0);
+        input_set_abs_params(input_dev, ABS_TOOL_WIDTH, 0, QT602240_MAX_SIZE/2, 0, 0);
+        
+        input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, QT602240_MAX_PRESSURE, 0, 0);
+        input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR, 0, QT602240_MAX_SIZE, 0, 0);
 
         if(HWREV >= 5)
         {
